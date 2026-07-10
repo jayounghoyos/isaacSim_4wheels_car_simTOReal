@@ -1,196 +1,247 @@
-# personalRobot — Learning to Train a 4-Wheeled Robot (Sim → Real)
+# 🤖 personalRobot — Sim-to-Real RL for a 4-Wheeled Robot
 
-A learning project: take a 4-wheeled robot designed in **Onshape** and teach it, with
-**reinforcement learning**, to **drive to a target cube** (later: using a camera + 2D LIDAR).
-Training happens in **MuJoCo** (+ Gymnasium + Stable-Baselines3 PPO); the long-term goal is to
-deploy the learned policy to the **real robot** (Jetson + ROS 2).
+> Train a robot designed in **Onshape** to navigate with **reinforcement learning** in simulation, then
+> run the *same* trained brain on the **real hardware** — over WiFi, on real motors.
 
-> Status: **pose-based navigation trained + sim-to-real interface built** (`mujoco_car/`, `ros2_nav/`).
-> Full plan: `~/.claude/plans/i-have-a-robot-glistening-pearl.md`
+<p>
+<img alt="sim" src="https://img.shields.io/badge/sim-MuJoCo%203.10-blue"> <img alt="rl" src="https://img.shields.io/badge/RL-PPO%20(SB3)-orange"> <img alt="deploy" src="https://img.shields.io/badge/deploy-ONNX%20%2B%20ESP32-green"> <img alt="ros" src="https://img.shields.io/badge/interface-ROS%202%20Jazzy-9cf">
+</p>
 
-## Sim-to-real: ONNX export + ROS 2 interface — `ros2_nav/`
-The trained policy is exported to a **portable ONNX** file (`mujoco_car/policy_nav.onnx`, 1.9 MB) that
-runs with only `onnxruntime` — no MuJoCo/PyTorch — the artifact you copy to the Jetson. Verified
-bit-identical to the SB3 policy (`export_onnx.py`; max action diff 1e-6). ONNX-in-env matches training
-(0/2/4 obstacles → 80/70/53%).
-
-A **ROS 2 (Jazzy)** interface makes the SAME policy node run in sim and on the real robot — only the
-topic *producers* change:
-```
-SIM:    mujoco_bridge  --/scan /odom /camera/image_raw /goal_pose-->  policy_node  --/cmd_vel-->  mujoco_bridge
-ROBOT:  lidar+enc/IMU+cam drivers  --same topics-->  policy_node  --/cmd_vel-->  L298N motor node
-```
-- `ros2_nav/policy_node.py` — **hardware-agnostic**: builds the 32-vec obs from `/scan`+`/odom`+`/goal_pose`,
-  the image from `/camera/image_raw`, runs `policy_nav.onnx`, publishes `/cmd_vel` (Twist). Event-driven
-  on `/odom` for one-step latency.
-- `ros2_nav/mujoco_bridge.py` — the sim stand-in: runs MuJoCo, publishes the sensor topics, subscribes
-  `/cmd_vel`. Self-contained (mujoco+numpy only), mirroring the minimal on-robot deps.
-- Run the full loop: `bash ros2_nav/run_sim.sh 120` (needs `/opt/ros/jazzy` + the `ros2_venv` py3.12 venv).
-- Env: `ros2_venv/` = python3.12 venv (`--system-site-packages` for rclpy) + `mujoco` + `onnxruntime`.
-
-> **⚠️ THE sim-to-real gap (`/odom`):** in sim `/odom` is perfect (from the physics engine). The real
-> robot must PRODUCE it from **wheel encoders + an IMU** — the current TT-motors + L298N have neither,
-> so 7 of the 32 observation values (pose + body velocities) can't be measured yet. Options: add
-> encoders+IMU (~$10), or retrain a policy that uses only LIDAR+camera+last-action (no global pose).
-> The ROS 2 structure makes this gap explicit and modular — the policy node doesn't change either way.
-
-
-> **Why MuJoCo and not Isaac Sim?** We tried hard to use NVIDIA Isaac Lab (the Jetson-native path),
-> but Isaac Sim's RTX renderer **crashes/hangs on this RTX 5060 Ti (Blackwell) with the 595 driver**
-> — a confirmed NVIDIA bug. MuJoCo renders with plain OpenGL/EGL, works on the GPU today, installs in
-> minutes, and teaches the identical RL concepts. Isaac/Jetson is parked for the future sim-to-real
-> phase. See `~/.claude/.../memory/isaac-rl-project-setup.md` for the full story.
+A 4-wheeled skid-steer robot learns **point-to-point navigation** (drive from anywhere to a commanded
+goal, avoiding obstacles) using a **2D LIDAR + onboard camera as complementary senses**. The policy is
+trained in MuJoCo with PPO, exported to a portable **ONNX** file, and executed on the real robot — the
+**Jetson Nano** as the brain and an **ESP32** as the motor controller.
 
 ---
 
-## Why this stack
-- **Isaac Lab / Isaac Sim** — GPU-accelerated RL that matches the hardware (RTX 5060 Ti) and the
-  end goal (Jetson + ROS 2). The most direct sim-to-real path.
-- **Leatherback** — a community 4-wheeled RL example (waypoint navigation, PPO) we adapt instead of
-  starting from scratch: https://github.com/MuammerBay/Leatherback
-- **Wheeled Lab** — reference for sim2real techniques (domain randomization, etc.).
+## ✨ What it does
 
-## Verified environment (this machine)
-| Component | Value |
+- **Learns to navigate** in sim: from a random pose, drive to a commanded waypoint while avoiding up to 4 obstacles.
+- **Two senses, working together** — a 24-ray **LIDAR** (360° obstacle sense) *and* a 64×64 **camera** (forward view), fused by a CNN+MLP policy.
+- **Smooth, hardware-friendly motion** via CAPS-style action-smoothness rewards (no twitchy, motor-wearing control).
+- **Runs on real hardware** — the trained ONNX policy drives real motors, live over WiFi.
+
+---
+
+## 🏗️ System architecture
+
+```mermaid
+flowchart LR
+    subgraph SIM["🖥️ Simulation & Training (PC, GPU)"]
+        ENV["RobotNavEnv<br/>(MuJoCo scene + reward)"]
+        PPO["PPO MultiInputPolicy<br/>CNN(camera) + MLP(vec)"]
+        ONNX["policy_nav.onnx<br/>(portable, VecNormalize baked in)"]
+        ENV -->|obs / reward| PPO
+        PPO -->|export| ONNX
+    end
+    subgraph REAL["🤖 Real Robot"]
+        JET["Jetson Nano<br/>runs ONNX policy"]
+        ESP["ESP32<br/>hardware PWM"]
+        L298["L298N<br/>H-bridge"]
+        MOT["4 DC motors"]
+        JET -->|USB / WiFi| ESP --> L298 --> MOT
+    end
+    ONNX -->|copy| JET
+    style SIM fill:#eef6ff,stroke:#4dabf7
+    style REAL fill:#eefbea,stroke:#51cf66
+```
+
+---
+
+## 🧠 The RL task
+
+| Element | Definition |
 |---|---|
-| GPU | NVIDIA RTX 5060 Ti, 16 GB VRAM (Blackwell / 50-series) |
-| OS | Ubuntu 24.04.4 LTS |
-| NVIDIA driver | **595.71.05** (`nvidia-driver-595-open`) |
-| Simulator | **MuJoCo 3.10** (renders via EGL on the GPU) |
-| RL | **Gymnasium 1.2** + **Stable-Baselines3 2.9** (PPO) |
-| Python | **3.11** (conda env `isaaclab` — name kept; also holds the parked Isaac install) |
-| PyTorch | **2.7.0** + CUDA **12.8** (`cu128`) |
-### Reproduce the setup
-```bash
-conda activate isaaclab            # Python 3.11 env (torch 2.7.0+cu128 already present)
-pip install mujoco "imageio[ffmpeg]"
-```
+| **Observation** | `Dict{ vec: 32, img: 64×64×3 }` |
+| &nbsp;&nbsp;• `vec` | goal `[dist, cos/sin(heading err)]` + robot `[vx, vy, yaw_rate]` + `last_action[2]` + **24 LIDAR** ranges |
+| &nbsp;&nbsp;• `img` | forward **camera** (fed to a CNN) — a *complementary sense* alongside the LIDAR |
+| **Action** | `[left, right]` wheel commands ∈ [-1, 1] (skid-steer) |
+| **Reward** | `+progress +heading −proximity −collision −lateral −bounce −rate −accel +reach` |
+| **Curriculum** | distance warmup (near→far) → 1 → 2 → 3 → 4 obstacles, auto-promoted on success rate |
 
-### The working demo — `mujoco_car/`  ✅ trains to 100% success
-A differential-drive car learns to drive to a randomly-placed cube (PPO, ~400k steps, a few minutes).
-```bash
-export PYTHONPATH=$PWD MUJOCO_GL=egl
-python mujoco_car/render_car.py out.png            # see the car + cube (still image)
-python mujoco_car/train.py 400000 8                # train PPO (8 parallel envs) -> saves model
-python mujoco_car/record.py after.mp4 5            # record 5 episodes of the trained policy
-python mujoco_car/record.py before.mp4 2 --random  # random baseline for comparison
-tensorboard --logdir mujoco_car/runs               # reward curves
-```
-Files: `car.xml` (MJCF model), `env.py` (Gymnasium env: 8-d obs, 2-d action, progress reward),
-`train.py`, `record.py`. Result: random policy ≈ −20 reward / 0% reached → trained ≈ +23 / **100%**.
+The **camera and LIDAR are both senses of the car** — the LIDAR gives 360° obstacle geometry, the camera
+adds a forward visual view; the policy learns to use both together.
 
-### Your real robot — `robot/` + `mujoco_car/robot_env.py`
-Exported from Onshape with `onshape-to-robot` → MJCF (`robot/robot.xml` + meshes in `robot/assets/`).
-4 wheels detected as joints (`wheel_fl/fr/rl/rr`). Skid-steer: action[0]=left pair, action[1]=right pair.
-```bash
-# one-time export (creds from onshapeAPI.env -> ONSHAPE_* env vars):
-export ONSHAPE_API=https://cad.onshape.com
-export ONSHAPE_ACCESS_KEY=...  ONSHAPE_SECRET_KEY=...     # from onshapeAPI.env (strip quotes!)
-onshape-to-robot robot/                                  # reads robot/config.json
-# train / watch:
-python mujoco_car/train_robot.py 600000 8
-python mujoco_car/continue_train_robot.py 1000000 8      # keep improving from checkpoint
-PYTHONPATH=$PWD python mujoco_car/watch_robot.py          # live viewer (run on your desktop)
+```mermaid
+flowchart TD
+    START([reset: random pose + random goal 2.5–18 m]) --> OBS["build obs: LIDAR + camera + goal vector"]
+    OBS --> POL["policy → [left, right]"]
+    POL --> STEP["MuJoCo step ×25"]
+    STEP --> REW["reward: progress − smoothness − proximity + reach"]
+    REW -->|dist < 1.1 m| DONE([✅ reached])
+    REW -->|else| OBS
 ```
-**Export gotchas we hit:** (1) `onshape-to-robot` needs **`ONSHAPE_API`** set too, not just the keys.
-(2) Keys in `onshapeAPI.env` were **quote-wrapped** → strip quotes or the HMAC signature 401s.
-**Model fixes after export (all in `robot/robot.xml`, hand-edited):**
-1. `position`→**`velocity`** actuators with capped `forcerange` (drive by speed, stable).
-2. Onshape's default density made it **308 kg → rescaled to ~33 kg** (mass+inertia together).
-3. Wheels penetrate the floor at the origin → **spawn at the captured rest height (z≈0.20)**.
-4. **Wheel collision meshes → cylinders** (radius 0.184) — mesh hulls are blobby and *hop*; cylinders
-   roll cleanly. Overdamped contact (`solref="0.06 2.5"`) kills residual bounce.
-5. **Mirrored axles** — left wheels spin about −Y, right about +Y. To drive forward, the two sides
-   need **opposite motor signs**; `robot_env.py` negates the left side so action=[+1,+1]=forward.
-   (Diagnosed by printing each wheel's world spin axis — both ±Y, confirming mirroring.)
-
-### Obstacle avoidance + 2D LIDAR — `robot/train_scene_lidar.xml` + `mujoco_car/robot_env_lidar.py`
-Robot learns to reach the cube **inside a walled cage while avoiding obstacles**, sensing them with a
-simulated **2D LIDAR** (24 rays). Difficulty **auto-advances**: 1 obstacle → 2 → 3 → 1 *moving*
-obstacle (each between robot and cube). Cube position stays privileged (LIDAR = avoidance only;
-camera-to-find-the-cube is the next round). Observation = base 8 + 24 normalized ray ranges = **32-d**.
-```bash
-export PYTHONPATH=$PWD MUJOCO_GL=egl
-python mujoco_car/test_lidar_env.py                      # proves the two LIDAR/obstacle requirements
-python mujoco_car/train_curriculum.py 6000000           # auto-advancing curriculum, filmstrip per stage
-PYTHONPATH=$PWD python mujoco_car/watch_robot_lidar.py --stage 3   # live viewer WITH lidar rays drawn
-```
-**LIDAR done right — `mj_ray` (the two failure modes the user flagged):**
-1. **Rays passing *through* walls / hitting the *back* face.** `mj_ray` returns the **nearest** surface,
-   but **`flg_static=0` silently excludes static geoms** (walls are static) — *that* is the classic
-   "ray goes through the wall" bug. Fixes: call with **`flg_static=1`**; a **group-5 geomgroup mask**
-   so only walls+obstacles are sensed (floor/robot/goal ignored); `bodyexclude=robot`. Origin kept
-   outside geoms (terminate on collision) so the near hit is always the **front** face. Proven in
-   `test_lidar_env.py` (front-face distance exact; `flg_static=0` → −1 = through the wall).
-2. **Obstacles spaced / not levitating.** Boxes at **z = half-height** (bottom on floor), kinematic
-   **mocap** bodies (stay put, don't fall), placed by **rejection sampling** with enforced clearances
-   from robot/cube/each-other/walls. Checked over 200 resets in the test.
-**Render/viewer note:** walls+obstacles live in **geom group 5** (hidden by default) → set
-`scene_option.geomgroup[5]=1` (renderer) / `viewer.opt.geomgroup[5]=1` (viewer) to see them.
-
-**Results (v1, deterministic eval):** warmup 88%, 1-obstacle 75%, 2-obstacle 25%, 3-obstacle 37%.
-The steep **1→2 obstacle cliff** exposed the real issue: penalizing only *contact* isn't enough —
-detouring around an obstacle temporarily increases distance-to-goal (losing progress reward), so the
-greedy policy drove straight into obstacles. **Fix = a LIDAR proximity penalty** (`robot_env_lidar.py`
-`step()`): `prox_pen = 5.0 * max(0, 0.22 - min_lidar_range)` — a smooth, growing cost as it nears any
-obstacle/wall *before* contact, giving a gradient to steer away early. Also: smaller obstacles (0.6 m),
-wider placement gaps (3.0 m), 2 M steps/stage, promotion threshold 0.60 rolling (≈78% deterministic).
-The goal is rendered as a **Jenga tower** (visual only — its shape isn't in the observation).
-**Live-watch workflow:** training writes `ppo_robot_lidar_latest` every rollout; the viewer reloads it
-each episode so you watch the policy improve mid-training. Resume a run:
-`python mujoco_car/train_curriculum.py N --resume --start-stage K`.
-**Viewer gotcha:** never stop it with `pkill -f watch_robot_lidar` — that command's own text matches
-the pattern and kills the launcher. Close the window or `kill <PID>`.
 
 ---
 
-## Pose-based navigation + LIDAR + CAMERA — `robot/train_scene_nav.xml` + `mujoco_car/robot_env_nav.py`
-Autonomous-driving style: the robot is **commanded to a goal pose** (A→B, given in the observation like
-a GPS waypoint — a legitimate destination, not privileged obstacle info) and drives there from **anywhere
-in a 30 m arena**, avoiding obstacles. **LIDAR = primary obstacle sense; onboard camera = auxiliary sense.**
-Obstacles (up to 4): **60% near the goal, 40% random**; no moving obstacles. Goal rendered as a Jenga tower.
-```bash
-export PYTHONPATH=$PWD MUJOCO_GL=egl
-python mujoco_car/test_nav_env.py                       # Dict-obs, raised-LIDAR front-face, 60/40 placement
-python mujoco_car/train_nav_curriculum.py 6000000       # curriculum 0→1→2→3→4 obstacles (CNN, ~1-2 h)
-PYTHONPATH=$PWD python mujoco_car/watch_nav.py --stage 3 # live viewer + LIDAR rays (cycle camera to robot_cam for POV)
-MUJOCO_GL=egl python mujoco_car/record_nav.py out.mp4 4  # side-by-side [third-person+rays | camera POV] video
+## 🔄 Sim-to-real pipeline
+
+The **mirror** streams the sim policy's commands to the real robot so you can *watch* the trained brain
+drive the physical machine. The **same ONNX** later runs onboard for full autonomy.
+
+```mermaid
+flowchart LR
+    A["MuJoCo sim + ONNX policy<br/>(jetson/mirror_stream.py)"] -->|"WiFi UDP [left,right] @20 Hz"| B["ESP32<br/>(esp32/main.py)"]
+    B -->|"hardware PWM + direction"| C["L298N"]
+    C --> D["motors"]
+    B -.->|"0.4 s watchdog: stop on link loss"| D
 ```
-- **Observation = Dict** `{"vec": 32 (goal-pose + state + 24 LIDAR), "img": 64×64×3 camera}`; SB3
-  **`MultiInputPolicy`** (CNN for image + MLP for vector); `VecNormalize(norm_obs_keys=["vec"])` (images
-  stay uint8, normalized by the CNN). Trains on **CUDA**.
-- **Camera pipeline verified:** per-subprocess EGL `Renderer` works inside `SubprocVecEnv` (each of 6
-  workers renders its own 64×64 image). Env step is cheap (~0.8 ms; camera +0.3 ms).
-- **LIDAR raised** to `z=0.42` (site local) so rays clear the chassis despite the tiny residual bounce.
-- **Headless cv2 caveat:** the env ships `opencv-python-headless` (`imshow` disabled), so the live
-  viewer uses the MuJoCo window and camera-POV comes from `record_nav.py` (imageio, no GUI needed).
+
+> The Jetson Nano's native PWM is unreliable for two motors (a known limitation), so an **ESP32 running
+> MicroPython** is the motor co-processor. For the mirror, the PC talks to the ESP32 directly over WiFi.
 
 ---
 
-## The learning curriculum
-| Phase | Goal (what you learn) | Deliverable |
-|---|---|---|
-| **0. Setup** | The Isaac toolchain; why drivers/versions matter for sim-to-real | A stock Isaac Lab example trains end-to-end on the GPU |
-| **1. RL foundations** | Env / Obs / Action / Reward / episode loop; how PPO learns. Read & retrain **Leatherback** | Explain every field in an `*_env_cfg.py`; retrain Leatherback |
-| **2. Your robot** | CAD → URDF → USD asset pipeline (`onshape-to-robot` → Isaac URDF importer) | Your robot's USD loads; wheels actuate in the GUI |
-| **3. "Go to cube" (state-based)** | Reward shaping & observation design; train without pixels first (privileged relative-to-cube vector) | Robot reliably drives to the cube from state |
-| **4. Real sensors** | Add **2D RTX LIDAR**, then **camera**; perception in the obs space and the cost of pixels | Robot reaches the cube from camera + LIDAR only |
-| **5. Sim-to-real readiness** | Domain randomization, latency, control-rate; **ROS 2 (Jazzy)** bridge mirroring real topics | Robust policy + ROS 2 graph matching the future real robot |
-| **6. Real robot** *(future)* | Jetson + ROS 2 deploy; export policy (ONNX) | Roadmap only — not built yet |
+## 🔌 Hardware & wiring
 
-> ⚠️ **Known Blackwell risk (Phase 4):** `TiledCamera` may hang on RTX 50-series (Isaac Lab #4951).
-> Fallback is the standard `Camera` (slice RGBA→RGB `[..., :3]`) with fewer parallel envs. This is
-> why the curriculum trains **state-based first** and only adds the camera once tiled rendering is
-> confirmed on this card.
+**Power** — one 3S LiPo runs everything:
 
-## Repo layout
+```mermaid
+flowchart LR
+    LiPo["🔋 3S LiPo 12.5 V"] --> FUSE["fuse + switch"]
+    FUSE --> VS["L298N VS (motor power)"]
+    FUSE --> BIN["XL4015E buck IN"]
+    BIN --> BOUT["buck OUT → 5 V"]
+    BOUT --> ESP["ESP32 5 V"]
+    LiPo -. "− COMMON GROUND (LiPo, buck, ESP32, L298N)" .-> VS
+    style LiPo fill:#ff6b6b,color:#fff
+    style BOUT fill:#4dabf7,color:#fff
+```
+
+**Signals** — ESP32 → L298N (jumpers OFF; PWM does the speed):
+
+```mermaid
+flowchart LR
+    subgraph ESP32
+        p25["GPIO 25 (PWM)"]:::pwm
+        p33["GPIO 33 (PWM)"]:::pwm
+        p26["GPIO 26"]
+        p27["GPIO 27"]
+        p32["GPIO 32"]
+        p14["GPIO 14"]
+    end
+    subgraph L298N
+        ena["ENA (left speed)"]
+        enb["ENB (right speed)"]
+        in1["IN1"]; in2["IN2"]; in3["IN3"]; in4["IN4"]
+    end
+    p25 --> ena
+    p33 --> enb
+    p26 --> in1
+    p27 --> in2
+    p32 --> in3
+    p14 --> in4
+    classDef pwm fill:#ffd43b,stroke:#f08c00
+```
+
+Full details, safety, and power math: **[`docs/wiring.md`](docs/wiring.md)**.
+
+---
+
+## 📁 Repository structure
+
 ```
 personalRobot/
-  README.md            # this file — the learning hub
-  robot/               # Onshape export config + generated URDF/meshes/USD
-    urdf/  usd/
-  isaac_ext/           # Isaac Lab external task project (go_to_cube)
-  scripts/             # train / play / export / ros2-bridge helpers
-  docs/                # per-phase learning notes
-  onshapeAPI.env       # Onshape API keys (gitignored — never commit)
+├── mujoco_car/           # RL pipeline (the only place experiments live)
+│   ├── nav_config.py     #   ⭐ single source of truth: arena, obstacles, curriculum, paths
+│   ├── robot_env_nav.py  #   Gymnasium env (Dict obs, smooth-motion reward)
+│   ├── train_nav_curriculum.py  #   PPO curriculum trainer
+│   ├── watch_nav.py / record_nav.py  #   live viewer / video recorder
+│   ├── export_onnx.py    #   SB3 → portable ONNX (deploy seam)
+│   ├── mj_utils.py       #   shared MuJoCo helpers
+│   └── test_nav_env.py   #   env + scene-consistency tests
+├── robot/                # MuJoCo model + scene (Onshape export → robot.xml, train_scene_nav.xml, meshes)
+├── models/               # 📦 tracked deployable policy (policy_nav.onnx + norm stats)
+├── esp32/                # ESP32 MicroPython motor firmware + WiFi mirror
+├── jetson/               # on-robot deploy + PC-side sim mirror
+├── ros2_nav/             # ROS 2 interface (hardware-agnostic policy node + sim bridge)
+├── docs/                 # wiring guide, notes
+└── artifacts/            # (gitignored) checkpoints, tensorboard, filmstrips, videos
 ```
+
+---
+
+## 🚀 Quickstart
+
+```bash
+conda activate isaaclab            # env with mujoco, stable-baselines3, torch, onnxruntime…
+pip install -e .                   # clean imports (no PYTHONPATH needed)
+
+# Train (curriculum, ~1.5–2 h) — checkpoints + filmstrips land in artifacts/
+MUJOCO_GL=egl python mujoco_car/train_nav_curriculum.py 6000000
+
+# Watch it drive (live viewer, hot-reloads the training checkpoint)
+python mujoco_car/watch_nav.py --stage 2
+
+# Export the trained policy to ONNX (models/policy_nav.onnx)
+python mujoco_car/export_onnx.py
+
+# Sim-to-real mirror → real robot over WiFi (wheels off the ground!)
+python jetson/mirror_stream.py --host <esp32-ip> --stage 2 --smooth 0.5
+```
+
+Run the tests: `MUJOCO_GL=egl python mujoco_car/test_nav_env.py`
+
+---
+
+## 🗺️ Custom maps & 3D terrains
+
+The world is a **MuJoCo MJCF scene** (`robot/train_scene_nav.xml`) — everything is customizable. Three ways to bring in your own map or terrain:
+
+**1. Change the arena / obstacles (easiest).**
+Arena size, obstacle size/count, and the curriculum live in one place — **`mujoco_car/nav_config.py`**. Edit `ARENA`, `OBS_HALF`, `STAGES`, etc. (the `test_config_matches_scene` test guards against drift with the XML).
+
+**2. Import a 3D model (OBJ/STL) as terrain or objects.**
+MuJoCo loads meshes just like the robot's own parts (`robot/assets/*.stl`). Add to the scene XML:
+```xml
+<asset>
+  <mesh name="my_terrain" file="assets/my_terrain.stl"/>
+</asset>
+<worldbody>
+  <geom type="mesh" mesh="my_terrain" pos="0 0 0"/>
+</worldbody>
+```
+Export from Blender/CAD as STL or OBJ into `robot/assets/`. (Keep collision meshes simple/convex — MuJoCo decomposes concave meshes poorly; use primitive geoms or convex hulls for collision, the detailed mesh for visual.)
+
+**3. Heightfield terrain (ramps, hills, rough ground) from an image.**
+MuJoCo's `<hfield>` turns a grayscale PNG into 3D terrain:
+```xml
+<asset>
+  <hfield name="ground" file="assets/heightmap.png" size="20 20 1.5 0.1"/>
+</asset>
+<worldbody>
+  <geom type="hfield" hfield="ground" pos="0 0 0"/>
+</worldbody>
+```
+`size = radius_x radius_y max_height base` — a painted heightmap becomes drivable terrain the wheels feel.
+
+**Textures** (`<texture>` + `<material>`) change how the world *looks* — which matters because the **camera sees it**, so richer/varied textures make the visual sense more meaningful.
+
+> 📌 After changing the world, rerun `python mujoco_car/test_nav_env.py` to catch any Python↔XML mismatch, and retrain (the policy is tied to the geometry it learned on).
+
+---
+
+## 📊 Results
+
+| Policy | Success (0 / 2 / 4 obstacles) | Motion smoothness (action-rate ↓) |
+|---|---|---|
+| Baseline nav | 87 / 67 / 50 % | 0.28 (twitchy) |
+| **+ smoothness reward** | 47 / 50 / 57 % | **0.14 (≈2× smoother)** |
+
+Deployed and verified on the real robot: the ESP32 drives the motors from the trained policy over WiFi, with visibly calmer motion.
+
+---
+
+## 🛣️ Roadmap
+
+- **Richer world:** obstacles that deliberately block the path, heightfield terrain, moving obstacles.
+- **Domain randomization** (textures, lighting, sensor noise, latency) for tougher sim-to-real transfer.
+- **Distance-gated smoothness:** relax the smoothness penalty near obstacles for crisp avoidance *and* smooth cruising.
+- **Onboard autonomy:** real LIDAR + camera + wheel-encoder/IMU odometry feeding the ONNX policy on the Jetson (the ROS 2 node in `ros2_nav/` is already the hardware-agnostic seam).
+
+---
+
+## Why MuJoCo (not Isaac Sim)?
+
+Isaac Sim's RTX renderer crashes/hangs on this RTX 5060 Ti (Blackwell) GPU. MuJoCo uses plain OpenGL/EGL,
+works perfectly, and its portable ONNX export makes on-device deployment clean.
