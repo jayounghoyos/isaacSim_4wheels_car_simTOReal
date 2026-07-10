@@ -1,0 +1,55 @@
+<mujoco model="diffdrive_car">
+  <!-- A minimal differential-drive car + a target cube, for the "drive to the cube" RL task.
+       Two driven wheels (left/right) + a front caster. Turn by driving the wheels at
+       different speeds. This is the DEMO platform; your Onshape robot replaces it in Phase 2. -->
+  <option timestep="0.005" integrator="implicitfast"/>
+  <visual>
+    <global offwidth="1280" offheight="720"/>
+    <headlight diffuse="0.7 0.7 0.7" ambient="0.3 0.3 0.3"/>
+  </visual>
+
+  <asset>
+    <texture name="grid" type="2d" builtin="checker" rgb1="0.2 0.3 0.4" rgb2="0.12 0.17 0.23"
+             width="512" height="512"/>
+    <material name="grid" texture="grid" texrepeat="10 10" reflectance="0.1"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0 0 4" dir="0 0 -1" diffuse="0.8 0.8 0.8"/>
+    <geom name="floor" type="plane" size="15 15 0.1" material="grid"/>
+
+    <!-- Target cube (its position is randomized each episode by the env) -->
+    <body name="target" pos="3 0 0.15" mocap="true">
+      <geom name="target" type="box" size="0.15 0.15 0.15" rgba="0.9 0.2 0.1 1" contype="0" conaffinity="0"/>
+    </body>
+
+    <!-- The car -->
+    <body name="chassis" pos="0 0 0.06">
+      <freejoint name="root"/>
+      <geom name="chassis" type="box" size="0.20 0.12 0.04" rgba="0.2 0.45 0.9 1" mass="2.0"/>
+      <!-- a small nose marker so orientation is visible -->
+      <geom name="nose" type="box" size="0.04 0.04 0.02" pos="0.20 0 0.05" rgba="1 0.9 0.2 1" mass="0.01"/>
+
+      <body name="left_wheel" pos="0 0.14 0">
+        <joint name="left" type="hinge" axis="0 1 0"/>
+        <geom type="cylinder" size="0.06 0.03" euler="90 0 0" rgba="0.1 0.1 0.1 1" mass="0.3"
+              friction="1.5 0.01 0.001"/>
+      </body>
+      <body name="right_wheel" pos="0 -0.14 0">
+        <joint name="right" type="hinge" axis="0 1 0"/>
+        <geom type="cylinder" size="0.06 0.03" euler="90 0 0" rgba="0.1 0.1 0.1 1" mass="0.3"
+              friction="1.5 0.01 0.001"/>
+      </body>
+
+      <!-- front caster: low-friction sphere so the car pivots cleanly -->
+      <geom name="caster" type="sphere" size="0.03" pos="0.16 0 -0.03" rgba="0.5 0.5 0.5 1"
+            friction="0.001 0.001 0.0001" mass="0.05"/>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <!-- velocity-controlled wheels: action = target wheel angular velocity (rad/s) -->
+    <velocity name="left_motor"  joint="left"  kv="0.8" ctrlrange="-25 25"/>
+    <velocity name="right_motor" joint="right" kv="0.8" ctrlrange="-25 25"/>
+  </actuator>
+</mujoco>
