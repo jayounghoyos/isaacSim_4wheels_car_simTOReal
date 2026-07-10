@@ -1,0 +1,123 @@
+# =====================================================================
+#  personalRobot / isaacSim_4wheels_car_simTOReal — .gitignore
+# =====================================================================
+
+# ---------- Secrets / credentials (NEVER commit) ----------
+*.env
+onshapeAPI.env
+onshapeAPI*.env
+*.key
+*.pem
+*.p12
+secrets.*
+credentials*.json
+*_secret*
+*token*
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg
+*.egg-info/
+.eggs/
+build/
+dist/
+develop-eggs/
+.installed.cfg
+*.manifest
+*.spec
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.ipynb_checkpoints/
+.python-version
+
+# ---------- Virtual environments ----------
+ros2_venv/
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+*.venv/
+conda-env/
+.conda/
+
+# ---------- External / vendored clones (not our code) ----------
+IsaacLab/
+references/
+isaac_ext/logs/
+isaac_ext/outputs/
+
+# ---------- ML / RL training artifacts (large, regenerable) ----------
+# Trained SB3 checkpoints + normalization stats (regenerate by training).
+# NOTE: the portable deployment policy (policy_nav.onnx / *.json) IS committed.
+*.zip
+*.pkl
+*.pt
+*.pth
+*.ckpt
+*.tar
+*.h5
+runs/
+runs_*/
+**/runs/
+**/runs_*/
+tensorboard/
+tb_logs/
+lightning_logs/
+events.out.tfevents.*
+*.tfevents.*
+wandb/
+
+# ---------- Generated media (renders, filmstrips, videos) ----------
+*.mp4
+*.avi
+*.mov
+*.gif
+*.mkv
+filmstrip*.png
+*_still.png
+*_composite*.png
+nav_cam*.png
+image.png
+preview*.png
+
+# ---------- Logs / caches ----------
+*.log
+MUJOCO_LOG.TXT
+*_LOG.TXT
+*.tmp
+*.bak
+scratchpad/
+tmp/
+.cache/
+
+# ---------- Firmware / build binaries ----------
+*.bin
+*.uf2
+*.elf
+build-*/
+
+# ---------- IDE / editor ----------
+.vscode/
+.idea/
+*.sublime-*
+*.swp
+*.swo
+*~
+
+# ---------- OS ----------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
