@@ -80,6 +80,7 @@ class RobotNavEnv(gym.Env):
         })
         self.action_space = spaces.Box(-1.0, 1.0, shape=(2,), dtype=np.float32)
         self._last_action = np.zeros(2, dtype=np.float32)
+        self._last_action2 = np.zeros(2, dtype=np.float32)   # for action-acceleration (jerk) smoothness
 
     def set_stage(self, n_obstacles, goal_lo=None, goal_hi=None):
         self.n_obstacles = int(n_obstacles)
@@ -186,6 +187,7 @@ class RobotNavEnv(gym.Env):
         mujoco.mj_forward(self.model, self.data)
         self._steps = 0
         self._last_action[:] = 0.0
+        self._last_action2 = np.zeros(2, dtype=np.float32)
         self._prev_dist = float(np.linalg.norm(self._target_xy() - self._car_xy()))
         return self._obs(), {}
 
@@ -222,14 +224,18 @@ class RobotNavEnv(gym.Env):
         vz = float(self.data.qvel[self._fjd + 2])                    # vertical velocity (hopping)
         lateral_pen = 1.2 * abs(vy_b)                                # move ALONG your heading, don't slide (strong)
         bounce_pen = 0.4 * abs(vz)                                   # don't hop
-        jerk_pen = 0.05 * float(np.sum((action - self._last_action) ** 2))  # smooth, non-twitchy control
+        # ACTION SMOOTHNESS (CAPS-style temporal regularization) — punishes OSCILLATION only, not
+        # smooth turns (so it can still steer to goals). No yaw-rate penalty (that blocked turning).
+        rate_pen = 0.12 * float(np.sum((action - self._last_action) ** 2))                        # ||a_t - a_{t-1}||^2
+        accel_pen = 0.06 * float(np.sum((action - 2.0 * self._last_action + self._last_action2) ** 2))  # jerk
         reached = dist < self.reach_tol
         reward = (2.0 * progress + 0.02 * heading_rew - ctrl_cost - prox_pen
-                  - lateral_pen - bounce_pen - jerk_pen + (15.0 if reached else 0.0))
+                  - lateral_pen - bounce_pen - rate_pen - accel_pen + (15.0 if reached else 0.0))
         if collided:
             reward -= 2.5
 
         self._prev_dist = dist
+        self._last_action2 = self._last_action.copy()
         self._last_action = action
         flipped = not (0.05 < self.data.qpos[self._fj + 2] < 1.5)
         terminated = bool(reached)

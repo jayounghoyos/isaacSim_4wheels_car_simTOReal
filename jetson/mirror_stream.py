@@ -28,6 +28,8 @@ host = sys.argv[sys.argv.index("--host") + 1] if "--host" in sys.argv else "192.
 port = int(sys.argv[sys.argv.index("--port") + 1]) if "--port" in sys.argv else 5005
 stage = int(sys.argv[sys.argv.index("--stage") + 1]) if "--stage" in sys.argv else 2
 view = "--no-view" not in sys.argv
+# deployment low-pass filter on the command (0 = raw policy, 0.7 = heavy smoothing). Reduces twitch.
+smooth_alpha = float(sys.argv[sys.argv.index("--smooth") + 1]) if "--smooth" in sys.argv else 0.5
 
 STAGE_NOBS = [0, 1, 2, 3, 4]
 env = RobotNavEnv(n_obstacles=STAGE_NOBS[stage])
@@ -49,12 +51,14 @@ def send(a):
 def run(viewer=None):
     obs, _ = env.reset()
     ep = 0
-    print(f"streaming [left,right] -> {host}:{port} at {1/dt:.0f} Hz  (Ctrl-C to stop)")
+    smooth = np.zeros(2, np.float32)              # EMA-filtered command (deployment smoothing)
+    print(f"streaming [left,right] -> {host}:{port} at {1/dt:.0f} Hz  smooth={smooth_alpha}  (Ctrl-C to stop)")
     while viewer is None or viewer.is_running():
         t0 = time.time()
         a = act(obs)
-        send(a)                                   # <-- real robot mirrors this
-        obs, r, term, trunc, info = env.step(a)
+        smooth = smooth_alpha * smooth + (1.0 - smooth_alpha) * a   # low-pass filter
+        send(smooth)                              # <-- real robot mirrors the SMOOTHED command
+        obs, r, term, trunc, info = env.step(smooth)
         if viewer is not None:
             viewer.sync()
         if term or trunc:
