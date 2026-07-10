@@ -31,6 +31,8 @@ stage = int(sys.argv[sys.argv.index("--stage") + 1]) if "--stage" in sys.argv el
 view = "--no-view" not in sys.argv
 # deployment low-pass filter on the command (0 = raw policy, 0.7 = heavy smoothing). Reduces twitch.
 smooth_alpha = float(sys.argv[sys.argv.index("--smooth") + 1]) if "--smooth" in sys.argv else 0.5
+# global speed scale on the sent command (1.0 = full, 0.4 = slow enough for a floor test). Motor-only.
+gain = float(sys.argv[sys.argv.index("--gain") + 1]) if "--gain" in sys.argv else 1.0
 
 STAGE_NOBS = [0, 1, 2, 3, 4]
 env = RobotNavEnv(n_obstacles=STAGE_NOBS[stage])
@@ -58,7 +60,7 @@ def run(viewer=None):
         t0 = time.time()
         a = act(obs)
         smooth = smooth_alpha * smooth + (1.0 - smooth_alpha) * a   # low-pass filter
-        send(smooth)                              # <-- real robot mirrors the SMOOTHED command
+        send(gain * smooth)                       # <-- real robot mirrors the SMOOTHED command (scaled)
         obs, r, term, trunc, info = env.step(smooth)
         if viewer is not None:
             viewer.sync()
