@@ -8,6 +8,7 @@ import numpy as np
 import imageio
 import mujoco
 from mujoco_car.robot_env_nav import RobotNavEnv, _LIDAR_GROUP
+from mujoco_car import nav_config as C
 
 HERE = os.path.dirname(__file__)
 STAGE_NOBS = [0, 1, 2, 3, 4]
@@ -22,10 +23,9 @@ predict = None
 if not use_random:
     from stable_baselines3 import PPO
     from stable_baselines3.common.vec_env import VecNormalize, DummyVecEnv
-    mp = os.path.join(HERE, "ppo_robot_nav_latest")
-    vp = os.path.join(HERE, "vecnormalize_robot_nav_latest.pkl")
+    mp, vp = C.MODEL_LATEST, C.VEC_LATEST
     if not os.path.exists(mp + ".zip"):
-        mp, vp = os.path.join(HERE, "ppo_robot_nav"), os.path.join(HERE, "vecnormalize_robot_nav.pkl")
+        mp, vp = C.MODEL, C.VEC
     model = PPO.load(mp, device="cpu")
     vec = VecNormalize.load(vp, DummyVecEnv([lambda: RobotNavEnv(n_obstacles=STAGE_NOBS[stage])]))
     vec.training = False

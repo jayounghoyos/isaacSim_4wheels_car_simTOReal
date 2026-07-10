@@ -11,6 +11,7 @@ import os, sys, time
 import numpy as np
 import mujoco, mujoco.viewer
 from mujoco_car.robot_env_nav import RobotNavEnv, _LIDAR_GROUP
+from mujoco_car import nav_config as C
 
 HERE = os.path.dirname(__file__)
 STAGE_NOBS = [0, 1, 2, 3, 4]
@@ -18,8 +19,8 @@ stage = int(sys.argv[sys.argv.index("--stage") + 1]) if "--stage" in sys.argv el
 use_random = "--random" in sys.argv
 
 env = RobotNavEnv(n_obstacles=STAGE_NOBS[stage])
-_M_LIVE, _V_LIVE = os.path.join(HERE, "ppo_robot_nav_latest"), os.path.join(HERE, "vecnormalize_robot_nav_latest.pkl")
-_M_ST, _V_ST = os.path.join(HERE, "ppo_robot_nav"), os.path.join(HERE, "vecnormalize_robot_nav.pkl")
+_M_LIVE, _V_LIVE = C.MODEL_LATEST, C.VEC_LATEST
+_M_ST, _V_ST = C.MODEL, C.VEC
 predict = None
 _loaded = {"mtime": 0.0}
 

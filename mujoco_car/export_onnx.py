@@ -14,9 +14,10 @@ import torch.nn as nn
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import VecNormalize, DummyVecEnv
 from mujoco_car.robot_env_nav import RobotNavEnv
+from mujoco_car import nav_config as C
 
 HERE = os.path.dirname(__file__)
-OUT = os.path.join(HERE, "policy_nav.onnx")
+OUT = C.ONNX
 
 
 class OnnxPolicy(nn.Module):
@@ -39,8 +40,8 @@ class OnnxPolicy(nn.Module):
 
 
 def main():
-    model = PPO.load(os.path.join(HERE, "ppo_robot_nav"), device="cpu")
-    vec = VecNormalize.load(os.path.join(HERE, "vecnormalize_robot_nav.pkl"),
+    model = PPO.load(C.MODEL, device="cpu")
+    vec = VecNormalize.load(C.VEC,
                             DummyVecEnv([lambda: RobotNavEnv(n_obstacles=0)]))
     rms = vec.obs_rms["vec"]
     wrapper = OnnxPolicy(model.policy, rms.mean, rms.var).eval()
@@ -79,7 +80,7 @@ def main():
 
     # also dump the normalization stats as JSON for the robot-side code reference
     import json
-    with open(os.path.join(HERE, "policy_nav_norm.json"), "w") as f:
+    with open(C.NORM_JSON, "w") as f:
         json.dump({"vec_mean": rms.mean.tolist(), "vec_var": rms.var.tolist(),
                    "clip": 10.0, "wheel_vel_scale": RobotNavEnv().wheel_vel_scale}, f, indent=2)
     print("saved policy_nav_norm.json (normalization stats for reference)")

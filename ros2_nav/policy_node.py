@@ -14,7 +14,7 @@ This SAME node runs in simulation (topics from mujoco_bridge.py) and on the real
 producers of the topics change — the policy does not.
 
 Run (ROS 2 sourced + the py3.12 venv active):
-  python ros2_nav/policy_node.py --ros-args -p onnx:=mujoco_car/policy_nav.onnx
+  python ros2_nav/policy_node.py --ros-args -p onnx:=models/policy_nav.onnx
 """
 import os
 import numpy as np
@@ -44,7 +44,7 @@ def yaw_from_quat(x, y, z, w):
 class PolicyNode(Node):
     def __init__(self):
         super().__init__("nav_policy")
-        default_onnx = os.path.join(os.path.dirname(__file__), "..", "mujoco_car", "policy_nav.onnx")
+        default_onnx = os.path.join(os.path.dirname(__file__), "..", "models", "policy_nav.onnx")
         onnx_path = self.declare_parameter("onnx", default_onnx).value
         self.rate_hz = float(self.declare_parameter("rate", 20.0).value)
         self.sess = ort.InferenceSession(onnx_path, providers=["CPUExecutionProvider"])

@@ -17,7 +17,7 @@ from stable_baselines3.common.callbacks import BaseCallback
 from mujoco_car.robot_env_nav import RobotNavEnv
 
 from mujoco_car.nav_config import (
-    STAGES, SUCCESS_THRESHOLD, MIN_EPS_PER_STAGE, MAX_STEPS_PER_STAGE, N_ENVS, MODEL, VEC, LOGDIR)
+    STAGES, SUCCESS_THRESHOLD, MIN_EPS_PER_STAGE, MAX_STEPS_PER_STAGE, N_ENVS, MODEL, VEC, LOGDIR, FILMSTRIP_DIR)
 
 HERE = os.path.dirname(__file__)
 os.makedirs(LOGDIR, exist_ok=True)
@@ -48,7 +48,7 @@ def save_filmstrip(model, vecnorm, cfg, n_eval=8):
     best = best or frames
     idx = np.linspace(0, len(best) - 1, 5).astype(int)
     strip = np.concatenate([np.asarray(Image.fromarray(best[i]).resize((384, 216))) for i in idx], axis=1)
-    out = os.path.join(HERE, f"filmstrip_nav_{stage_name}.png")
+    out = os.path.join(FILMSTRIP_DIR, f"filmstrip_nav_{stage_name}.png")
     Image.fromarray(strip).save(out); env.close()
     print(f"[FILMSTRIP] {stage_name}: eval {succ}/{n_eval} -> {out}", flush=True)
 

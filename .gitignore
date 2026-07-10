@@ -125,3 +125,6 @@ desktop.ini
 # ESP32 reference image (copyrighted) + wifi creds
 pinout.png
 wifi_config.py
+
+# training outputs (checkpoints, tensorboard, filmstrips, videos)
+artifacts/

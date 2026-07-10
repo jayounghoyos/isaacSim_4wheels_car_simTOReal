@@ -46,9 +46,19 @@ SUCCESS_THRESHOLD = 0.55
 MIN_EPS_PER_STAGE = 50
 MAX_STEPS_PER_STAGE = 1_200_000
 
-# ---- output/model paths ----
-MODEL = os.path.join(HERE, "ppo_robot_nav")
-VEC = os.path.join(HERE, "vecnormalize_robot_nav.pkl")
-LOGDIR = os.path.join(HERE, "runs_nav")
-ONNX = os.path.join(HERE, "policy_nav.onnx")
-NORM_JSON = os.path.join(HERE, "policy_nav_norm.json")
+# ---- paths ----
+#   artifacts/ = gitignored training outputs (checkpoints, tensorboard, filmstrips, videos)
+#   models/    = the tracked, deployable policy (ONNX + normalization stats)
+ARTIFACTS = os.path.abspath(os.path.join(HERE, "..", "artifacts"))
+MODELS = os.path.abspath(os.path.join(HERE, "..", "models"))
+os.makedirs(ARTIFACTS, exist_ok=True)
+os.makedirs(MODELS, exist_ok=True)
+
+MODEL = os.path.join(ARTIFACTS, "ppo_robot_nav")                  # SB3 checkpoint (+ "_latest")
+VEC = os.path.join(ARTIFACTS, "vecnormalize_robot_nav.pkl")       # (+ "_latest")
+MODEL_LATEST = MODEL + "_latest"
+VEC_LATEST = VEC.replace(".pkl", "_latest.pkl")
+LOGDIR = os.path.join(ARTIFACTS, "runs_nav")
+FILMSTRIP_DIR = ARTIFACTS
+ONNX = os.path.join(MODELS, "policy_nav.onnx")                    # deployable, tracked
+NORM_JSON = os.path.join(MODELS, "policy_nav_norm.json")

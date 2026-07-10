@@ -21,7 +21,8 @@ import onnxruntime as ort
 from mujoco_car.robot_env_nav import RobotNavEnv, _LIDAR_GROUP
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ONNX = os.path.join(HERE, "..", "mujoco_car", "policy_nav.onnx")
+from mujoco_car import nav_config as C
+ONNX = C.ONNX
 PKT = struct.Struct("!ff")
 
 host = sys.argv[sys.argv.index("--host") + 1] if "--host" in sys.argv else "192.168.1.12"
