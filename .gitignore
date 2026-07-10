@@ -121,3 +121,7 @@ build-*/
 ehthumbs.db
 Thumbs.db
 desktop.ini
+
+# ESP32 reference image (copyrighted) + wifi creds
+pinout.png
+wifi_config.py
