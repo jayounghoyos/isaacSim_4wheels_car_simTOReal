@@ -1,4 +1,4 @@
-# 🤖 personalRobot — Sim-to-Real RL for a 4-Wheeled Robot
+# personalRobot — Sim-to-Real RL for a 4-Wheeled Robot
 
 > Train a robot designed in **Onshape** to navigate with **reinforcement learning** in simulation, then
 > run the *same* trained brain on the **real hardware** — over WiFi, on real motors.
@@ -14,7 +14,7 @@ trained in MuJoCo with PPO, exported to a portable **ONNX** file, and executed o
 
 ---
 
-## ✨ What it does
+## What it does
 
 - **Learns to navigate** in sim: from a random pose, drive to a commanded waypoint while avoiding up to 4 obstacles.
 - **Two senses, working together** — a 24-ray **LIDAR** (360° obstacle sense) *and* a 64×64 **camera** (forward view), fused by a CNN+MLP policy.
@@ -23,7 +23,7 @@ trained in MuJoCo with PPO, exported to a portable **ONNX** file, and executed o
 
 ---
 
-## 🏗️ System architecture
+## System architecture
 
 ```mermaid
 flowchart LR
@@ -48,7 +48,7 @@ flowchart LR
 
 ---
 
-## 🧠 The RL task
+## The RL task
 
 | Element | Definition |
 |---|---|
@@ -74,7 +74,7 @@ flowchart TD
 
 ---
 
-## 🔄 Sim-to-real pipeline
+## Sim-to-real pipeline
 
 The **mirror** streams the sim policy's commands to the real robot so you can *watch* the trained brain
 drive the physical machine. The **same ONNX** later runs onboard for full autonomy.
@@ -92,7 +92,7 @@ flowchart LR
 
 ---
 
-## 🔌 Hardware & wiring
+## Hardware & wiring
 
 **Power** — one 3S LiPo runs everything:
 
@@ -138,12 +138,12 @@ Full details, safety, and power math: **[`docs/wiring.md`](docs/wiring.md)**.
 
 ---
 
-## 📁 Repository structure
+## Repository structure
 
 ```
 personalRobot/
 ├── mujoco_car/           # RL pipeline (the only place experiments live)
-│   ├── nav_config.py     #   ⭐ single source of truth: arena, obstacles, curriculum, paths
+│   ├── nav_config.py     #   single source of truth: arena, obstacles, curriculum, paths
 │   ├── robot_env_nav.py  #   Gymnasium env (Dict obs, smooth-motion reward)
 │   ├── train_nav_curriculum.py  #   PPO curriculum trainer
 │   ├── watch_nav.py / record_nav.py  #   live viewer / video recorder
@@ -151,7 +151,7 @@ personalRobot/
 │   ├── mj_utils.py       #   shared MuJoCo helpers
 │   └── test_nav_env.py   #   env + scene-consistency tests
 ├── robot/                # MuJoCo model + scene (Onshape export → robot.xml, train_scene_nav.xml, meshes)
-├── models/               # 📦 tracked deployable policy (policy_nav.onnx + norm stats)
+├── models/               # tracked deployable policy (policy_nav.onnx + norm stats)
 ├── esp32/                # ESP32 MicroPython motor firmware + WiFi mirror
 ├── jetson/               # on-robot deploy + PC-side sim mirror
 ├── ros2_nav/             # ROS 2 interface (hardware-agnostic policy node + sim bridge)
@@ -161,7 +161,7 @@ personalRobot/
 
 ---
 
-## 🚀 Quickstart
+## Quickstart
 
 ```bash
 conda activate isaaclab            # env with mujoco, stable-baselines3, torch, onnxruntime…
@@ -184,7 +184,7 @@ Run the tests: `MUJOCO_GL=egl python mujoco_car/test_nav_env.py`
 
 ---
 
-## 🗺️ Custom maps & 3D terrains
+## Custom maps & 3D terrains
 
 The world is a **MuJoCo MJCF scene** (`robot/train_scene_nav.xml`) — everything is customizable. Three ways to bring in your own map or terrain:
 
@@ -217,11 +217,11 @@ MuJoCo's `<hfield>` turns a grayscale PNG into 3D terrain:
 
 **Textures** (`<texture>` + `<material>`) change how the world *looks* — which matters because the **camera sees it**, so richer/varied textures make the visual sense more meaningful.
 
-> 📌 After changing the world, rerun `python mujoco_car/test_nav_env.py` to catch any Python↔XML mismatch, and retrain (the policy is tied to the geometry it learned on).
+> After changing the world, rerun `python mujoco_car/test_nav_env.py` to catch any Python↔XML mismatch, and retrain (the policy is tied to the geometry it learned on).
 
 ---
 
-## 📊 Results
+## Results
 
 | Policy | Success (0 / 2 / 4 obstacles) | Motion smoothness (action-rate ↓) |
 |---|---|---|
