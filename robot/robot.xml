@@ -1,0 +1,92 @@
+<?xml version="1.0" ?>
+<!-- Generated using onshape-to-robot -->
+<!-- Onshape https://cad.onshape.com/documents/cf51a70103db432769543c51/w/7e018cacb15a911b2256f57c/e/bcb27ac4664ef37f7c51214e -->
+<mujoco model="my_robot">
+  <compiler angle="radian" meshdir="assets" autolimits="true"/>
+  <default>
+    <default class="my_robot">
+      <joint frictionloss="0.1" armature="0.005"/>
+      <position kp="50" dampratio="1"/>
+      <default class="visual">
+        <geom type="mesh" contype="0" conaffinity="0" group="2"/>
+      </default>
+      <default class="collision">
+        <!-- overdamped contact (dampratio 2 = no bounce) + high friction for grip -->
+        <geom group="3" condim="3" friction="1.4 0.01 0.001" solref="0.02 1"/>
+      </default>
+    </default>
+  </default>
+  <worldbody>
+    <!-- Link part_1 -->
+    <body name="part_1" pos="0 0 0" quat="1 0 0 0" childclass="my_robot">
+      <freejoint name="part_1_freejoint"/>
+      <inertial pos="-0.199094 0.105186 0.0371702" mass="30.0" fullinertia="5.99 11.65 15.97 0.00495 -0.0971 0.0000285"/>
+      <!-- Part part_1 -->
+      <geom type="mesh" class="visual" pos="-0.175807 0.105186 -0.165337" quat="0.707104 0.00203775 -0.00203775 -0.707104" mesh="part_1" material="part_1_material"/>
+      <geom type="mesh" class="collision" pos="-0.175807 0.105186 -0.165337" quat="0.707104 0.00203775 -0.00203775 -0.707104" mesh="part_1" material="part_1_material"/>
+      <!-- Part part_2 -->
+      <geom type="mesh" class="visual" pos="-0.175807 0.105186 -0.165337" quat="0.707104 0.00203775 -0.00203775 -0.707104" mesh="part_2" material="part_2_material"/>
+      <geom type="mesh" class="collision" pos="-0.175807 0.105186 -0.165337" quat="0.707104 0.00203775 -0.00203775 -0.707104" mesh="part_2" material="part_2_material"/>
+      <!-- MANUAL: 2D LIDAR mount at chassis top-center. Raised to z=0.42 so rays clear the chassis
+           even with the tiny residual bounce/pitch. This is the ONE spot to move so it matches where
+           the real LIDAR is bolted on the physical robot. -->
+      <site name="lidar" pos="-0.178 0.105 0.42" size="0.03" rgba="1 0.2 0.2 1" group="4"/>
+      <!-- MANUAL: forward-facing camera mount (front edge, looks +x = driving direction).
+           Wired into the observation in the camera round. -->
+      <camera name="robot_cam" mode="fixed" pos="0.70 0.105 0.14" xyaxes="0 -1 0 0 0 1" fovy="70"/>
+      <!-- Link rim -->
+      <body name="rim" pos="0.558316 0.895186 -0.0111037" quat="0.707104 0.707104 -0.00203775 0.00203775">
+        <!-- Joint from part_1 to rim -->
+        <joint axis="0 0 1" name="wheel_fl"/>
+        <inertial pos="0 -0 0.0323512" mass="0.875" fullinertia="0.006697 0.006697 0.011573 -0 0 0"/>
+        <!-- Part rim -->
+        <geom type="mesh" class="visual" pos="0 -0 0.0659467" quat="0.707107 0.707107 -0 -0" mesh="rim" material="rim_material"/>
+        <geom type="cylinder" class="collision" pos="0 0 0.0659467" size="0.184 0.0615"/>
+      </body>
+      <!-- Link rim_2 -->
+      <body name="rim_2" pos="-0.91166 -0.684814 -0.0195762" quat="0.698401 -0.698401 -0.110616 -0.110616">
+        <!-- Joint from part_1 to rim_2 -->
+        <joint axis="0 0 1" name="wheel_rr"/>
+        <inertial pos="-0 0 0.0323512" mass="0.875" fullinertia="0.006697 0.006697 0.011573 -0 0 0"/>
+        <!-- Part rim_2 -->
+        <geom type="mesh" class="visual" pos="-0 0 0.0659467" quat="0.707107 0.707107 -0 0" mesh="rim" material="rim_material"/>
+        <geom type="cylinder" class="collision" pos="0 0 0.0659467" size="0.184 0.0615"/>
+      </body>
+      <!-- Link rim_3 -->
+      <body name="rim_3" pos="-0.91166 0.895186 -0.0195762" quat="0.707104 0.707104 -0.00203775 0.00203775">
+        <!-- Joint from part_1 to rim_3 -->
+        <joint axis="0 0 1" name="wheel_rl"/>
+        <inertial pos="0 -0 0.0323512" mass="0.875" fullinertia="0.006697 0.006697 0.011573 0 0 -0"/>
+        <!-- Part rim_3 -->
+        <geom type="mesh" class="visual" pos="0 -0 0.0659467" quat="0.687091 0.687091 -0.167052 -0.167052" mesh="rim" material="rim_material"/>
+        <geom type="cylinder" class="collision" pos="0 0 0.0659467" size="0.184 0.0615"/>
+      </body>
+      <!-- Link rim_4 -->
+      <body name="rim_4" pos="0.558316 -0.684814 -0.0111037" quat="0.707104 -0.707104 -0.00203775 -0.00203775">
+        <!-- Joint from part_1 to rim_4 -->
+        <joint axis="0 0 1" name="wheel_fr"/>
+        <inertial pos="-0 0 0.0323512" mass="0.875" fullinertia="0.006697 0.006697 0.011573 0 -0 0"/>
+        <!-- Part rim_4 -->
+        <geom type="mesh" class="visual" pos="-0 0 0.0659467" quat="0.640518 0.640518 -0.299561 -0.299561" mesh="rim" material="rim_material"/>
+        <geom type="cylinder" class="collision" pos="0 0 0.0659467" size="0.184 0.0615"/>
+      </body>
+    </body>
+  </worldbody>
+  <asset>
+    <mesh file="part_2.stl"/>
+    <mesh file="rim.stl"/>
+    <mesh file="part_1.stl"/>
+    <material name="part_1_material" rgba="0.615686 0.811765 0.929412 1"/>
+    <material name="part_2_material" rgba="0.647059 0.647059 0.647059 1"/>
+    <material name="rim_material" rgba="0.301961 0.301961 0.301961 1"/>
+  </asset>
+  <!-- MANUAL EDIT (was <position>): velocity-controlled wheels for differential drive.
+       ctrl = target wheel speed (rad/s); forcerange caps torque so the heavy robot stays stable. -->
+  <actuator>
+    <velocity name="wheel_fl" joint="wheel_fl" kv="60" ctrlrange="-12 12" forcerange="-400 400"/>
+    <velocity name="wheel_rr" joint="wheel_rr" kv="60" ctrlrange="-12 12" forcerange="-400 400"/>
+    <velocity name="wheel_rl" joint="wheel_rl" kv="60" ctrlrange="-12 12" forcerange="-400 400"/>
+    <velocity name="wheel_fr" joint="wheel_fr" kv="60" ctrlrange="-12 12" forcerange="-400 400"/>
+  </actuator>
+  <equality/>
+</mujoco>

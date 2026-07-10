@@ -1,0 +1,6 @@
+{
+    "url": "https://cad.onshape.com/documents/cf51a70103db432769543c51/w/7e018cacb15a911b2256f57c/e/bcb27ac4664ef37f7c51214e",
+    "output_format": "mujoco",
+    "robot_name": "my_robot",
+    "output_filename": "robot"
+}

@@ -1,0 +1,58 @@
+<mujoco model="train_scene_nav">
+  <include file="robot.xml"/>
+  <visual>
+    <global offwidth="1280" offheight="720"/>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3"/>
+  </visual>
+  <asset>
+    <texture name="grid" type="2d" builtin="checker" rgb1="0.2 0.3 0.4" rgb2="0.12 0.17 0.23"
+             width="512" height="512"/>
+    <material name="grid" texture="grid" texrepeat="12 12" reflectance="0.1"/>
+    <material name="wall_mat" rgba="0.35 0.38 0.45 1"/>
+    <material name="obs_mat" rgba="0.75 0.45 0.2 1"/>
+    <material name="wood_a" rgba="0.86 0.69 0.44 1"/>
+    <material name="wood_b" rgba="0.76 0.58 0.36 1"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0 0 10" dir="0 0 -1" diffuse="0.8 0.8 0.8"/>
+    <geom name="floor" type="plane" size="60 60 0.1" material="grid"/>
+
+    <!-- ===== 4 STATIC WALLS: 30x30 m cage (interior half-size 15 m) =====
+         group 5 (LIDAR-sensed); static => mj_ray needs flg_static=1. Height 1 m, thickness 0.2 m. -->
+    <geom name="wall_n" type="box" material="wall_mat" group="5" pos="0  15.1 0.5" size="15.2 0.1 0.5"/>
+    <geom name="wall_s" type="box" material="wall_mat" group="5" pos="0 -15.1 0.5" size="15.2 0.1 0.5"/>
+    <geom name="wall_e" type="box" material="wall_mat" group="5" pos=" 15.1 0 0.5" size="0.1 15.2 0.5"/>
+    <geom name="wall_w" type="box" material="wall_mat" group="5" pos="-15.1 0 0.5" size="0.1 15.2 0.5"/>
+
+    <!-- goal = JENGA TOWER (mocap[0]): group 0 (LIDAR ignores the goal), all blocks non-colliding.
+         Visual goal marker only — shape is NOT in the observation. 6 layers of 3 blocks, alternating. -->
+    <body name="target" pos="6 0 0.02" mocap="true">
+      <geom type="box" size="0.3 0.1 0.06" pos="0 -0.2 0.06" material="wood_a" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.3 0.1 0.06" pos="0  0.0 0.06" material="wood_a" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.3 0.1 0.06" pos="0  0.2 0.06" material="wood_a" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.1 0.3 0.06" pos="-0.2 0 0.18" material="wood_b" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.1 0.3 0.06" pos=" 0.0 0 0.18" material="wood_b" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.1 0.3 0.06" pos=" 0.2 0 0.18" material="wood_b" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.3 0.1 0.06" pos="0 -0.2 0.30" material="wood_a" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.3 0.1 0.06" pos="0  0.0 0.30" material="wood_a" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.3 0.1 0.06" pos="0  0.2 0.30" material="wood_a" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.1 0.3 0.06" pos="-0.2 0 0.42" material="wood_b" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.1 0.3 0.06" pos=" 0.0 0 0.42" material="wood_b" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.1 0.3 0.06" pos=" 0.2 0 0.42" material="wood_b" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.3 0.1 0.06" pos="0 -0.2 0.54" material="wood_a" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.3 0.1 0.06" pos="0  0.0 0.54" material="wood_a" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.3 0.1 0.06" pos="0  0.2 0.54" material="wood_a" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.1 0.3 0.06" pos="-0.2 0 0.66" material="wood_b" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.1 0.3 0.06" pos=" 0.0 0 0.66" material="wood_b" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.1 0.3 0.06" pos=" 0.2 0 0.66" material="wood_b" contype="0" conaffinity="0"/>
+    </body>
+
+    <!-- up to 4 obstacles (mocap[1..4]): solid + group 5, box half 0.3, z=0.5 (bottom on floor).
+         The env activates n_obstacles and parks the rest far away. -->
+    <body name="obs1" pos="3  1 0.5" mocap="true"><geom name="obs1_g" type="box" size="0.3 0.3 0.5" group="5" material="obs_mat"/></body>
+    <body name="obs2" pos="3 -1 0.5" mocap="true"><geom name="obs2_g" type="box" size="0.3 0.3 0.5" group="5" material="obs_mat"/></body>
+    <body name="obs3" pos="4  0 0.5" mocap="true"><geom name="obs3_g" type="box" size="0.3 0.3 0.5" group="5" material="obs_mat"/></body>
+    <body name="obs4" pos="5  1 0.5" mocap="true"><geom name="obs4_g" type="box" size="0.3 0.3 0.5" group="5" material="obs_mat"/></body>
+  </worldbody>
+</mujoco>

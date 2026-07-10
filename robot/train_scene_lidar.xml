@@ -1,0 +1,72 @@
+<mujoco model="train_scene_lidar">
+  <include file="robot.xml"/>
+  <visual>
+    <global offwidth="1280" offheight="720"/>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3"/>
+  </visual>
+  <asset>
+    <texture name="grid" type="2d" builtin="checker" rgb1="0.2 0.3 0.4" rgb2="0.12 0.17 0.23"
+             width="512" height="512"/>
+    <material name="grid" texture="grid" texrepeat="6 6" reflectance="0.1"/>
+    <material name="wall_mat" rgba="0.35 0.38 0.45 1"/>
+    <material name="obs_mat" rgba="0.75 0.45 0.2 1"/>
+    <material name="wood_a" rgba="0.86 0.69 0.44 1"/>
+    <material name="wood_b" rgba="0.76 0.58 0.36 1"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0 0 8" dir="0 0 -1" diffuse="0.8 0.8 0.8"/>
+    <geom name="floor" type="plane" size="40 40 0.1" material="grid"/>
+
+    <!-- ===== 4 STATIC WALLS forming a ~14x14 m cage (interior half-size 7 m) =====
+         group="5" so the LIDAR senses them; static (no joint) => need mj_ray flg_static=1.
+         Height 1 m (half 0.5, centered z=0.5 => bottom on floor). Thickness 0.2 m (half 0.1). -->
+    <geom name="wall_n" type="box" material="wall_mat" group="5" pos="0  7.1 0.5" size="7.2 0.1 0.5"/>
+    <geom name="wall_s" type="box" material="wall_mat" group="5" pos="0 -7.1 0.5" size="7.2 0.1 0.5"/>
+    <geom name="wall_e" type="box" material="wall_mat" group="5" pos=" 7.1 0 0.5" size="0.1 7.2 0.5"/>
+    <geom name="wall_w" type="box" material="wall_mat" group="5" pos="-7.1 0 0.5" size="0.1 7.2 0.5"/>
+
+    <!-- target = a JENGA TOWER (mocap[0]): group 0 so the LIDAR ignores the goal; all blocks
+         non-colliding (contype/conaffinity 0). Purely a visual goal marker — its shape is NOT in
+         the observation, so this does not affect training. 6 layers of 3 blocks, alternating. -->
+    <body name="target" pos="4 0 0.02" mocap="true">
+      <!-- layer 0 (z=0.06) long axis X -->
+      <geom type="box" size="0.3 0.1 0.06" pos="0 -0.2 0.06" material="wood_a" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.3 0.1 0.06" pos="0  0.0 0.06" material="wood_a" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.3 0.1 0.06" pos="0  0.2 0.06" material="wood_a" contype="0" conaffinity="0"/>
+      <!-- layer 1 (z=0.18) long axis Y -->
+      <geom type="box" size="0.1 0.3 0.06" pos="-0.2 0 0.18" material="wood_b" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.1 0.3 0.06" pos=" 0.0 0 0.18" material="wood_b" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.1 0.3 0.06" pos=" 0.2 0 0.18" material="wood_b" contype="0" conaffinity="0"/>
+      <!-- layer 2 (z=0.30) long axis X -->
+      <geom type="box" size="0.3 0.1 0.06" pos="0 -0.2 0.30" material="wood_a" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.3 0.1 0.06" pos="0  0.0 0.30" material="wood_a" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.3 0.1 0.06" pos="0  0.2 0.30" material="wood_a" contype="0" conaffinity="0"/>
+      <!-- layer 3 (z=0.42) long axis Y -->
+      <geom type="box" size="0.1 0.3 0.06" pos="-0.2 0 0.42" material="wood_b" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.1 0.3 0.06" pos=" 0.0 0 0.42" material="wood_b" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.1 0.3 0.06" pos=" 0.2 0 0.42" material="wood_b" contype="0" conaffinity="0"/>
+      <!-- layer 4 (z=0.54) long axis X -->
+      <geom type="box" size="0.3 0.1 0.06" pos="0 -0.2 0.54" material="wood_a" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.3 0.1 0.06" pos="0  0.0 0.54" material="wood_a" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.3 0.1 0.06" pos="0  0.2 0.54" material="wood_a" contype="0" conaffinity="0"/>
+      <!-- layer 5 (z=0.66) long axis Y -->
+      <geom type="box" size="0.1 0.3 0.06" pos="-0.2 0 0.66" material="wood_b" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.1 0.3 0.06" pos=" 0.0 0 0.66" material="wood_b" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.1 0.3 0.06" pos=" 0.2 0 0.66" material="wood_b" contype="0" conaffinity="0"/>
+    </body>
+
+    <!-- 3 obstacle bodies (mocap[1..3]): SOLID (collide) + group 5 (LIDAR-sensed).
+         half-height 0.5 placed at z=0.5 => bottom exactly on the floor (no levitation).
+         The env repositions these each reset and parks unused ones far outside the arena. -->
+    <body name="obs1" pos="2  1.2 0.5" mocap="true">
+      <geom name="obs1_g" type="box" size="0.3 0.3 0.5" group="5" material="obs_mat"/>
+    </body>
+    <body name="obs2" pos="2 -1.5 0.5" mocap="true">
+      <geom name="obs2_g" type="box" size="0.3 0.3 0.5" group="5" material="obs_mat"/>
+    </body>
+    <body name="obs3" pos="3  0.4 0.5" mocap="true">
+      <geom name="obs3_g" type="box" size="0.3 0.3 0.5" group="5" material="obs_mat"/>
+    </body>
+  </worldbody>
+</mujoco>
