@@ -22,29 +22,31 @@ from gymnasium import spaces
 import mujoco
 
 from mujoco_car.mj_utils import _yaw_from_quat
+from mujoco_car import nav_config as C
 
-_XML = os.path.join(os.path.dirname(__file__), "..", "robot", "train_scene_nav.xml")
-_REST_Z = 0.20
-_LIDAR_GROUP = 5
-_OBS_HALF = 0.3
-_OBS_Z = 0.5
-_ARENA = 13.0             # keep robot/goal/obstacles within +/- this (walls inner face ~15.0)
-_PARK = np.array([200.0, 200.0, 0.5])
-_IMG = 64                 # camera resolution (square)
+_XML = C.SCENE_XML
+_REST_Z = C.REST_Z
+_LIDAR_GROUP = C.LIDAR_GROUP
+_OBS_HALF = C.OBS_HALF
+_OBS_Z = C.OBS_Z
+_ARENA = C.ARENA         # keep robot/goal/obstacles within +/- this (walls inner face ~15.0)
+_PARK = np.array(C.PARK)
+_IMG = C.IMG             # camera resolution (square)
 
 
 class RobotNavEnv(gym.Env):
     metadata = {"render_modes": ["rgb_array"], "render_fps": 20}
 
-    def __init__(self, render_mode=None, max_steps=400, frame_skip=25,
-                 n_obstacles=1, n_rays=24, lidar_max=8.0, goal_lo=2.5, goal_hi=5.0):
+    def __init__(self, render_mode=None, max_steps=C.MAX_STEPS, frame_skip=C.FRAME_SKIP,
+                 n_obstacles=1, n_rays=C.N_RAYS, lidar_max=C.LIDAR_MAX,
+                 goal_lo=C.GOAL_LO, goal_hi=C.GOAL_HI):
         super().__init__()
         self.model = mujoco.MjModel.from_xml_path(os.path.abspath(_XML))
         self.data = mujoco.MjData(self.model)
         self.frame_skip = frame_skip
         self.max_steps = max_steps
-        self.wheel_vel_scale = 10.0    # ~1.8 m/s top; reward penalties (not speed) do the smoothing
-        self.reach_tol = 1.1
+        self.wheel_vel_scale = C.WHEEL_VEL_SCALE   # reward penalties (not speed) do the smoothing
+        self.reach_tol = C.REACH_TOL
         self.render_mode = render_mode
         self.n_obstacles = int(n_obstacles)
         self.n_rays = int(n_rays)

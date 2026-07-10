@@ -80,9 +80,21 @@ def test_gym():
     print("  [ok] gymnasium check passed (Dict obs)")
 
 
+def test_config_matches_scene():
+    """Guard against Python(nav_config)<->XML(train_scene_nav.xml) drift."""
+    from mujoco_car import nav_config as C
+    m = mujoco.MjModel.from_xml_path(C.SCENE_XML)
+    gid = m.body_geomadr[m.body("obs1").id]          # obstacle box half-size must match config
+    half = float(m.geom_size[gid][0])
+    assert abs(half - C.OBS_HALF) < 1e-6, f"OBS_HALF {C.OBS_HALF} != scene geom {half}"
+    assert C.ARENA < C.WALL_INNER, f"arena {C.ARENA} must be inside walls {C.WALL_INNER}"
+    print(f"  [ok] config matches scene: obstacle half={half}, arena {C.ARENA} < wall {C.WALL_INNER}")
+
+
 if __name__ == "__main__":
     print("test_dict_obs_and_camera");   test_dict_obs_and_camera()
     print("test_lidar_front_face_raised"); test_lidar_front_face_raised()
     print("test_placement_6040");         test_placement_6040()
     print("test_gym");                    test_gym()
+    print("test_config_matches_scene");   test_config_matches_scene()
     print("\nALL_NAV_TESTS_PASSED")

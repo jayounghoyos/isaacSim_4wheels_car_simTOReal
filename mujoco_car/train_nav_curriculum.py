@@ -16,26 +16,11 @@ from stable_baselines3.common.callbacks import BaseCallback
 
 from mujoco_car.robot_env_nav import RobotNavEnv
 
-HERE = os.path.dirname(__file__)
-LOGDIR = os.path.join(HERE, "runs_nav")
-os.makedirs(LOGDIR, exist_ok=True)
+from mujoco_car.nav_config import (
+    STAGES, SUCCESS_THRESHOLD, MIN_EPS_PER_STAGE, MAX_STEPS_PER_STAGE, N_ENVS, MODEL, VEC, LOGDIR)
 
-# (name, n_obstacles, goal_lo, goal_hi) — DISTANCE curriculum on the warmup (near->far) THEN obstacles.
-STAGES = [
-    ("warmup_near", 0, 2.5, 5.0),    # learn "turn to waypoint + drive" on close goals (fast to bootstrap)
-    ("warmup_mid",  0, 4.0, 10.0),
-    ("warmup_far",  0, 6.0, 18.0),   # full open-arena navigation
-    ("1_obstacle",  1, 4.0, 14.0),
-    ("2_obstacles", 2, 4.0, 14.0),
-    ("3_obstacles", 3, 4.0, 14.0),
-    ("4_obstacles", 4, 4.0, 14.0),
-]
-SUCCESS_THRESHOLD = 0.55
-MIN_EPS_PER_STAGE = 50
-MAX_STEPS_PER_STAGE = 1_200_000
-N_ENVS = 6                      # camera rendering is heavy -> fewer workers
-MODEL = os.path.join(HERE, "ppo_robot_nav")
-VEC = os.path.join(HERE, "vecnormalize_robot_nav.pkl")
+HERE = os.path.dirname(__file__)
+os.makedirs(LOGDIR, exist_ok=True)
 
 
 def make_env(seed, cfg):
