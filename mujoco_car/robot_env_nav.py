@@ -21,7 +21,7 @@ import gymnasium as gym
 from gymnasium import spaces
 import mujoco
 
-from mujoco_car.robot_env import _yaw_from_quat
+from mujoco_car.mj_utils import _yaw_from_quat
 
 _XML = os.path.join(os.path.dirname(__file__), "..", "robot", "train_scene_nav.xml")
 _REST_Z = 0.20
