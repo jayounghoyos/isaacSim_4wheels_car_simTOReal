@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "personalrobot"
+version = "0.1.0"
+description = "Sim-to-real reinforcement learning for a 4-wheeled Onshape robot (MuJoCo + PPO + ONNX + ESP32)."
+readme = "README.md"
+requires-python = ">=3.10"
+# Heavy deps come from the conda env `isaaclab` (mujoco, stable-baselines3, torch, gymnasium,
+# onnxruntime, imageio, pillow, numpy). Activate it, then `pip install -e .` for clean imports
+# (no more PYTHONPATH=$PWD). The ESP32 (esp32/) and ROS 2 (ros2_nav/) subsystems run in their
+# own runtimes and are not part of this Python package.
+
+[tool.setuptools]
+packages = ["mujoco_car"]
+
+[project.scripts]
+nav-train = "mujoco_car.train_nav_curriculum:main"
+nav-export = "mujoco_car.export_onnx:main"
